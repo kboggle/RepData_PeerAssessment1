@@ -1,25 +1,149 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+output: html_document
+editor_options: 
+chunk_output_type: console
 ---
+---
+title: "Reproducible Research - Project 1"
+output: html_notebook
 
+---
+### Loading and preprocessing the data
 
-## Loading and preprocessing the data
+```{r}
+library("ggplot2")
+library("dplyr")
+library("timeDate")
+data =  read.csv("activity.csv", sep = ",", header = TRUE)
 
+data_clean <- na.omit(data)
+```
 
+### What is mean total number of steps taken per day?
+1. Plotting the Histogram
+  
+```{r}
 
-## What is mean total number of steps taken per day?
+data_date <- data %>% 
+              select(date, steps) %>%
+              group_by(date)%>% 
+              summarize(totalsteps= sum(steps))%>%
+              na.omit()
+```
 
+```{r}
+ggplot(data_date, aes(x=totalsteps)) + 
+  geom_histogram(main="Total Steps in a day", 
+                 color = 'blue', fill = 'white') + 
+  labs( x = "Total Steps", y = "Frequency")
+```
+  
+2. Calculate and report the mean and median total number of steps taken per day
+  
+```{r}
+mean(data_date$totalsteps)
+```
+```{r}
+median(data_date$totalsteps)
+```
 
+### What is the average daily activity pattern?
 
-## What is the average daily activity pattern?
+1.  Time series plot
+```{r}
+data_avg_date <- data_clean %>% 
+              select(interval, steps)%>%
+              group_by(interval) %>% 
+              summarize(avgsteps= mean(steps))%>%
+              na.omit()
 
+ggplot(data_avg_date, 
+       aes(x=interval, y=avgsteps)) +
+  geom_line(size=1) + 
+  labs( y = "Average number of steps", 
+        y = "Interval")
+```
 
+2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+ 
+```{r}
+peak <- max(data_avg_date$avgsteps)
+data_avg_date[((data_avg_date$avgsteps)==peak), ]
+```
+ 
+### Imputing missing values
 
-## Imputing missing values
+1. Calculate and report the total number of missing values in the dataset
+  
+```{r}
+sum(is.na(data))
+```
 
+2. Devise a strategy for filling in all of the missing values in the dataset
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+  
+```{r}
 
+replaceNA <- function(x) replace(x, is.na(x), floor(mean(x, na.rm = TRUE)))
 
-## Are there differences in activity patterns between weekdays and weekends?
+data_new <- data %>%
+            group_by(interval) %>%
+            mutate(steps= replaceNA(steps))%>%
+            ungroup()
+head(data_new)  
+```
+  
+4. Calculate and report the mean and median total number of steps taken per day
+  
+```{r}
+data_date_new <- data_new %>% 
+                group_by(date)%>% 
+                summarize(totalsteps= sum(steps))%>%
+                na.omit()%>%
+                ungroup()
+head(data_date_new)
+```
+
+```{r}
+ggplot(data_date_new, 
+       aes(x=totalsteps)) + 
+  geom_histogram(main="Total Steps in a day", 
+                 color = 'red', fill = 'white') + 
+  labs( x = "Total Steps", 
+        y = "Frequency")
+```
+
+```{r}
+mean(data_date_new$totalsteps)
+median(data_date_new$totalsteps)
+```
+
+##### Comments:
+   + The mean remains the same even after rreplacing the NA with the average values
+   + The overall data has shifted towards the mean after replacing the missing values with the average values 
+   
+### Are there differences in activity patterns between weekdays and weekends?
+
+1.  Indicate whether a given date is a weekday or weekend day.
+```{r}
+data_new$day <- weekdays(as.Date(data_new$date))
+data_new$wd <- ifelse(data_new$day=="Saturday" | data_new$day=="Sunday", "Weekend", "Weekday" )
+head(data_new)
+```
+
+2. Panel Plot
+
+```{r}
+data_new_summ <- data_new %>% 
+  group_by(wd, interval) %>% 
+  summarise(avsteps = mean(steps))
+
+data_new_summ %>% head()
+ggplot(data_new_summ,
+       aes(x=interval, y=avsteps, colour = wd)) +
+  geom_line() +
+  labs( y = "Average number of steps",
+        y = "Interval") +
+  facet_grid(rows = vars(wd))
+```
+
